@@ -71,7 +71,7 @@ set CLASSPATH=%APP_HOME%\lib\search-1.0-SNAPSHOT.jar;%APP_HOME%\lib\kotlin-stdli
 
 
 @rem Execute search
-"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %SEARCH_OPTS%  -classpath "%CLASSPATH%" com.redhat.nexus.AppKt %*
+"%JAVA_EXE%" %DEFAULT_JVM_OPTS% %JAVA_OPTS% %SEARCH_OPTS%  -classpath "%CLASSPATH%" no.not.none.nexus.AppKt %*
 
 :end
 @rem End local scope for the variables with windows NT shell

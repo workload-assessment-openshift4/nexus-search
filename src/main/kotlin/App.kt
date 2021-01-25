@@ -1,13 +1,11 @@
-package com.redhat.nexus
+package no.not.none.nexus
 
 import jakarta.json.JsonObject
 import jakarta.ws.rs.client.Client
 import jakarta.ws.rs.client.ClientBuilder
 import jakarta.ws.rs.core.MediaType
-import org.apache.commons.cli.DefaultParser
-import org.apache.commons.cli.HelpFormatter
-import org.apache.commons.cli.Options
-import org.apache.commons.cli.ParseException
+import org.apache.commons.cli.*
+import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature
 import org.glassfish.json.jaxrs.JsonValueBodyReader
 import java.io.File
 import java.security.cert.X509Certificate
@@ -26,7 +24,9 @@ fun main(vararg args: String) {
 
     try {
         val cl = parser.parse(options, args)
-        val client = buildClient()
+
+
+        val client = buildClient(cl)
 
         val response =
             client
@@ -35,6 +35,8 @@ fun main(vararg args: String) {
                 .queryParam("assets.attributes.maven2.extension", cl.getOptionValue('e'))
                 .request(MediaType.APPLICATION_JSON_TYPE)
                 .get(JsonObject::class.java)
+
+        println(response)
 
         val artifacts = response.getJsonArray("items").map { it as JsonObject }.map {
             val mavenArtifact = it.getJsonObject("maven2")
@@ -87,6 +89,8 @@ fun createOptions(): Options {
     options.addOption("g", "group", true, "The group to select from")
     options.addOption("v", "verbose", false, "Print the artifacts list")
     options.addOption("f", "file", true, "File to export too.")
+    options.addOption("u", "username", true, "Username")
+    options.addOption("p", "password", true, "Password")
 
     return options
 }
@@ -100,7 +104,7 @@ data class Artifact(
     val url: String
 )
 
-fun buildClient(): Client {
+fun buildClient(cl: CommandLine): Client {
     val noopTrustManager = arrayOf(
         object : X509TrustManager {
             override fun checkClientTrusted(chain: Array<out X509Certificate>?, authType: String?) {
@@ -119,7 +123,17 @@ fun buildClient(): Client {
     val sc = SSLContext.getInstance("ssl")
     sc.init(null, noopTrustManager, null)
 
-    return ClientBuilder.newBuilder().sslContext(sc)
+    var builder = ClientBuilder.newBuilder().sslContext(sc)
         .register(JsonValueBodyReader::class.java)
+
+    if (cl.hasOption('u') || cl.hasOption('p')) {
+        val feature = HttpAuthenticationFeature.basicBuilder()
+            .credentials(cl.getOptionValue('u', ""), cl.getOptionValue('p', ""))
+            .build()
+
+        builder = builder.register(feature)
+    }
+
+    return builder
         .build()
 }

@@ -3,7 +3,7 @@ plugins {
     application
 }
 
-group = "com.redhat.nexus"
+group = "no.not.none.nexus"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -23,5 +23,5 @@ dependencies {
 }
 
 application {
-    mainClass.set("com.redhat.nexus.AppKt")
+    mainClass.set("no.not.none.nexus.AppKt")
 }
