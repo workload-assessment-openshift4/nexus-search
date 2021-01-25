@@ -12,5 +12,13 @@ Uncompress and start using.
 
 Use the `search` command under `bin`.
 
-Nexus Search -e,--extension <arg>   The artifacts' extension -f,--file <arg>        File to export too. -g,--group The
-group to select from -s,--server <arg>      The Nexus API URL -v,--verbose Print the artifacts list
+```
+Nexus Search
+-e,--extension <arg>   The artifacts' extension
+-f,--file <arg>        File to export too.
+-g,--group <arg>       The group to select from
+-p,--password <arg>    Password
+-s,--server <arg>      The Nexus API URL
+-u,--username <arg>    Username
+-v,--verbose           Print the artifacts list
+```
