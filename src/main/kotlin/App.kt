@@ -1,8 +1,11 @@
 package no.not.none.nexus
 
 import jakarta.json.JsonObject
+import jakarta.json.JsonString
+import jakarta.json.JsonValue
 import jakarta.ws.rs.client.Client
 import jakarta.ws.rs.client.ClientBuilder
+import jakarta.ws.rs.client.WebTarget
 import jakarta.ws.rs.core.MediaType
 import org.apache.commons.cli.*
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature
@@ -25,41 +28,27 @@ fun main(vararg args: String) {
     try {
         val cl = parser.parse(options, args)
 
+        val target = buildTarget(cl)
 
-        val client = buildClient(cl)
+        var continuationToken: String? = null
 
-        val response =
-            client
-                .target(cl.getOptionValue('s'))
-                .path("service/rest/v1/search/assets")
-                .queryParam("assets.attributes.maven2.extension", cl.getOptionValue('e'))
-                .request(MediaType.APPLICATION_JSON_TYPE)
-                .get(JsonObject::class.java)
+        val allSelectedArtifacts = mutableListOf<Artifact>()
 
-        println(response)
+        do {
+            val (artifacts, token) = requestArtifacts(target, continuationToken)
 
-        val artifacts = response.getJsonArray("items").map { it as JsonObject }.map {
-            val mavenArtifact = it.getJsonObject("maven2")
-            val lastModified = ZonedDateTime.parse(it.getString("lastModified"))
-            val url = it.getString("downloadUrl")
+            continuationToken = token
 
-            Artifact(
-                group = mavenArtifact.getString("groupId"),
-                name = mavenArtifact.getString("artifactId"),
-                version = mavenArtifact.getString("version"),
-                extension = mavenArtifact.getString("extension"),
-                lastModified, url
-            )
-        }
+            allSelectedArtifacts.addAll(artifacts)
 
-        val mappedArtifacts = artifacts.groupBy({ "${it.group}:${it.name}" }, { it })
+            println("${allSelectedArtifacts.size} artifacts so far!")
 
-        var distinctArtifacts = mappedArtifacts.mapNotNull {
+        } while (continuationToken != null)
+
+        val mappedArtifacts = allSelectedArtifacts.groupBy({ "${it.group}:${it.name}" }, { it })
+
+        val distinctArtifacts = mappedArtifacts.mapNotNull {
             it.value.maxByOrNull { art -> art.lastModified }
-        }
-
-        if (cl.hasOption('g')) {
-            distinctArtifacts = distinctArtifacts.filter { it.group.startsWith(cl.getOptionValue('g')) }
         }
 
         val csv = distinctArtifacts
@@ -79,6 +68,55 @@ fun main(vararg args: String) {
         formatter.printHelp("Nexus Search", options)
     }
 
+}
+
+private fun requestArtifacts(target: WebTarget, continuationToken: String?): Response {
+
+    val response = if (continuationToken != null) {
+        target.queryParam("continuationToken", continuationToken)
+    } else {
+        target
+    }.request(MediaType.APPLICATION_JSON_TYPE)
+        .get(JsonObject::class.java)
+
+    println(response)
+
+    val value = response.getValue("/continuationToken")
+
+    val responseToken = if (value != JsonValue.NULL) {
+        (value as JsonString).string
+    } else null
+
+    val artifacts = response.getJsonArray("items").map { it as JsonObject }.map {
+        val mavenArtifact = it.getJsonObject("maven2")
+        val lastModified = ZonedDateTime.parse(it.getString("lastModified"))
+        val url = it.getString("downloadUrl")
+
+        Artifact(
+            group = mavenArtifact.getString("groupId", ""),
+            name = mavenArtifact.getString("artifactId", ""),
+            version = mavenArtifact.getString("version", ""),
+            extension = mavenArtifact.getString("extension", ""),
+            lastModified, url
+        )
+    }
+
+    return Response(artifacts, responseToken)
+}
+
+private fun buildTarget(cl: CommandLine): WebTarget {
+    val client = buildClient(cl)
+
+    var target = client
+        .target(cl.getOptionValue('s'))
+        .path("service/rest/v1/search/assets")
+        .queryParam("assets.attributes.maven2.extension", cl.getOptionValue('e'))
+
+    if (cl.hasOption('c')) {
+        target = target
+            .queryParam("attributes.maven2.groupId", cl.getOptionValue('g'))
+    }
+    return target
 }
 
 fun createOptions(): Options {
@@ -103,6 +141,8 @@ data class Artifact(
     val lastModified: ZonedDateTime,
     val url: String
 )
+
+data class Response(val artifacts: List<Artifact>, val continuationToken: String?)
 
 fun buildClient(cl: CommandLine): Client {
     val noopTrustManager = arrayOf(
