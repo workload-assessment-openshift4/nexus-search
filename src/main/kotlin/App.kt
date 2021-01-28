@@ -1,8 +1,10 @@
 package no.not.none.nexus
 
+import jakarta.json.Json
 import jakarta.json.JsonObject
 import jakarta.json.JsonString
 import jakarta.json.JsonValue
+import jakarta.ws.rs.InternalServerErrorException
 import jakarta.ws.rs.client.Client
 import jakarta.ws.rs.client.ClientBuilder
 import jakarta.ws.rs.client.WebTarget
@@ -11,6 +13,7 @@ import org.apache.commons.cli.*
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature
 import org.glassfish.json.jaxrs.JsonValueBodyReader
 import java.io.File
+import java.io.StringReader
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
@@ -76,12 +79,7 @@ fun main(vararg args: String) {
 
 private fun requestArtifacts(target: WebTarget, continuationToken: String?): Response {
 
-    val response = if (continuationToken != null) {
-        target.queryParam("continuationToken", continuationToken)
-    } else {
-        target
-    }.request(MediaType.APPLICATION_JSON_TYPE)
-        .get(JsonObject::class.java)
+    val response = doRequest(target, continuationToken)
 
     println(response)
 
@@ -101,6 +99,33 @@ private fun requestArtifacts(target: WebTarget, continuationToken: String?): Res
     }
 
     return Response(artifacts, responseToken)
+}
+
+val emptyResponse: JsonObject =
+    Json.createReader(StringReader("{\"items\":[],\"continuationToken\":null}")).readObject()
+
+private fun doRequest(
+    target: WebTarget,
+    continuationToken: String?,
+    i: Int = 0
+): JsonObject {
+    return try {
+        if (continuationToken != null) {
+            target.queryParam("continuationToken", continuationToken)
+        } else {
+            target
+        }.request(MediaType.APPLICATION_JSON_TYPE)
+            .get(JsonObject::class.java)
+    } catch (_: InternalServerErrorException) {
+        val a = i + 1
+        println("Failed $a time(s)")
+        if (a < 5)
+            doRequest(target, continuationToken, a)
+        else {
+            println("We can't get past that error")
+            emptyResponse
+        }
+    }
 }
 
 private fun buildTarget(cl: CommandLine): WebTarget {
