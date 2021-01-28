@@ -1,9 +1,6 @@
 package no.not.none.nexus
 
-import jakarta.json.Json
-import jakarta.json.JsonObject
-import jakarta.json.JsonString
-import jakarta.json.JsonValue
+import jakarta.json.*
 import jakarta.ws.rs.InternalServerErrorException
 import jakarta.ws.rs.client.Client
 import jakarta.ws.rs.client.ClientBuilder
@@ -36,21 +33,24 @@ fun main(vararg args: String) {
 
         val allSelectedArtifacts = mutableListOf<Artifact>()
 
-        do {
-            val (artifacts, token) = requestArtifacts(target, continuationToken)
+        getRepos(cl).forEach {
 
-            continuationToken = token
+            do {
+                val (artifacts, token) = requestArtifacts(target, it.name, continuationToken)
 
-            allSelectedArtifacts.addAll(artifacts.filter {
-                !it.repository.contains(
-                    "snapshot",
-                    true
-                ) || !it.name.contains("snapshot", true)
-            })
+                continuationToken = token
 
-            println("${allSelectedArtifacts.size} artifacts so far!")
+                allSelectedArtifacts.addAll(artifacts.filter {
+                    !it.repository.contains(
+                        "snapshot",
+                        true
+                    ) || !it.name.contains("snapshot", true)
+                })
 
-        } while (continuationToken != null)
+                println("${allSelectedArtifacts.size} artifacts so far!")
+
+            } while (continuationToken != null)
+        }
 
         val mappedArtifacts = allSelectedArtifacts.groupBy({ "${it.repository}/${it.group}:${it.name}" }, { it })
 
@@ -77,9 +77,9 @@ fun main(vararg args: String) {
 
 }
 
-private fun requestArtifacts(target: WebTarget, continuationToken: String?): Response {
+private fun requestArtifacts(target: WebTarget, repo: String, continuationToken: String?): Response {
 
-    val response = doRequest(target, continuationToken)
+    val response = doRequest(target, repo, continuationToken)
 
     println(response)
 
@@ -106,21 +106,24 @@ val emptyResponse: JsonObject =
 
 private fun doRequest(
     target: WebTarget,
+    repo: String,
     continuationToken: String?,
     i: Int = 0
 ): JsonObject {
+    val repoTarget = target.queryParam("repository", repo)
+
     return try {
         if (continuationToken != null) {
-            target.queryParam("continuationToken", continuationToken)
+            repoTarget.queryParam("continuationToken", continuationToken)
         } else {
-            target
+            repoTarget
         }.request(MediaType.APPLICATION_JSON_TYPE)
             .get(JsonObject::class.java)
     } catch (_: InternalServerErrorException) {
         val a = i + 1
         println("Failed $a time(s)")
         if (a < 5)
-            doRequest(target, continuationToken, a)
+            doRequest(target, repo, continuationToken, a)
         else {
             println("We can't get past that error")
             emptyResponse
@@ -143,6 +146,31 @@ private fun buildTarget(cl: CommandLine): WebTarget {
     }
 
     return target
+}
+
+private fun getRepos(cl: CommandLine): List<Repository> {
+    val client = buildClient(cl)
+
+    return client
+        .target(cl.getOptionValue('s'))
+        .path("service/rest/v1/repositories")
+        .request(MediaType.APPLICATION_JSON_TYPE)
+        .get(JsonArray::class.java)
+        .map { it as JsonObject }
+        .map {
+            Repository(
+                name = it.getString("name", ""),
+                format = it.getString("format", ""),
+                type = it.getString("type", ""),
+                url = it.getString("url", "")
+            )
+        }.filter {
+            it.type == "hosted"
+        }.filter {
+            it.format == "maven2"
+        }.filter {
+            !it.name.contains("snapshot", true)
+        }
 }
 
 fun createOptions(): Options {
@@ -201,3 +229,10 @@ fun buildClient(cl: CommandLine): Client {
     return builder
         .build()
 }
+
+data class Repository(
+    val name: String,
+    val format: String,
+    val type: String,
+    val url: String
+)
