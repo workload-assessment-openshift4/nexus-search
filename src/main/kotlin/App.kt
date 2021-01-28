@@ -12,7 +12,6 @@ import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature
 import org.glassfish.json.jaxrs.JsonValueBodyReader
 import java.io.File
 import java.security.cert.X509Certificate
-import java.time.ZonedDateTime
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
 
@@ -39,21 +38,26 @@ fun main(vararg args: String) {
 
             continuationToken = token
 
-            allSelectedArtifacts.addAll(artifacts)
+            allSelectedArtifacts.addAll(artifacts.filter {
+                !it.repository.contains(
+                    "snapshot",
+                    true
+                ) || !it.name.contains("snapshot", true)
+            })
 
             println("${allSelectedArtifacts.size} artifacts so far!")
 
         } while (continuationToken != null)
 
-        val mappedArtifacts = allSelectedArtifacts.groupBy({ "${it.group}:${it.name}" }, { it })
+        val mappedArtifacts = allSelectedArtifacts.groupBy({ "${it.repository}/${it.group}:${it.name}" }, { it })
 
         val distinctArtifacts = mappedArtifacts.mapNotNull {
-            it.value.maxByOrNull { art -> art.lastModified }
+            it.value.maxByOrNull { art -> art.version }
         }
 
         val csv = distinctArtifacts
             .joinToString(System.getProperty("line.separator")) {
-                "${it.group}:${it.name}:${it.version}:${it.extension},${it.url}"
+                "${it.repository},${it.group},${it.name},${it.version}"
             }
 
         if (cl.hasOption('v') || !cl.hasOption('f')) {
@@ -88,16 +92,11 @@ private fun requestArtifacts(target: WebTarget, continuationToken: String?): Res
     } else null
 
     val artifacts = response.getJsonArray("items").map { it as JsonObject }.map {
-        val mavenArtifact = it.getJsonObject("maven2")
-        val lastModified = ZonedDateTime.parse(it.getString("lastModified"))
-        val url = it.getString("downloadUrl")
-
         Artifact(
-            group = mavenArtifact.getString("groupId", ""),
-            name = mavenArtifact.getString("artifactId", ""),
-            version = mavenArtifact.getString("version", ""),
-            extension = mavenArtifact.getString("extension", ""),
-            lastModified, url
+            repository = it.getString("repository", ""),
+            group = it.getString("group", ""),
+            name = it.getString("name", ""),
+            version = it.getString("version", ""),
         )
     }
 
@@ -109,13 +108,15 @@ private fun buildTarget(cl: CommandLine): WebTarget {
 
     var target = client
         .target(cl.getOptionValue('s'))
-        .path("service/rest/v1/search/assets")
+        .path("service/rest/v1/search")
+        .queryParam("format", "maven2")
         .queryParam("assets.attributes.maven2.extension", cl.getOptionValue('e'))
 
-    if (cl.hasOption('c')) {
+    if (cl.hasOption('g')) {
         target = target
-            .queryParam("attributes.maven2.groupId", cl.getOptionValue('g'))
+            .queryParam("group", cl.getOptionValue('g'))
     }
+
     return target
 }
 
@@ -134,12 +135,10 @@ fun createOptions(): Options {
 }
 
 data class Artifact(
+    val repository: String,
     val group: String,
     val name: String,
-    val version: String,
-    val extension: String,
-    val lastModified: ZonedDateTime,
-    val url: String
+    val version: String
 )
 
 data class Response(val artifacts: List<Artifact>, val continuationToken: String?)
