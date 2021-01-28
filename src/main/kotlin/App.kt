@@ -33,10 +33,10 @@ fun main(vararg args: String) {
 
         val allSelectedArtifacts = mutableListOf<Artifact>()
 
-        getRepos(cl).forEach {
+        getRepos(cl).forEach { repo ->
 
             do {
-                val (artifacts, token) = requestArtifacts(target, it.name, continuationToken)
+                val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken)
 
                 continuationToken = token
 
@@ -52,10 +52,10 @@ fun main(vararg args: String) {
             } while (continuationToken != null)
         }
 
-        val mappedArtifacts = allSelectedArtifacts.groupBy({ "${it.repository}/${it.group}:${it.name}" }, { it })
+        val mappedArtifacts = allSelectedArtifacts.groupBy({ "${it.repository}/${it.group}:${it.realName}" }, { it })
 
         val distinctArtifacts = mappedArtifacts.mapNotNull {
-            it.value.maxByOrNull { art -> art.version }
+            it.value.maxByOrNull { art -> art.nameEncodedVersion + art.version }
         }
 
         val csv = distinctArtifacts
@@ -90,10 +90,11 @@ private fun requestArtifacts(target: WebTarget, repo: String, continuationToken:
     } else null
 
     val artifacts = response.getJsonArray("items").map { it as JsonObject }.map {
+        val name = it.getString("name", "")
         Artifact(
             repository = it.getString("repository", ""),
             group = it.getString("group", ""),
-            name = it.getString("name", ""),
+            name = name,
             version = it.getString("version", ""),
         )
     }
@@ -165,6 +166,7 @@ private fun getRepos(cl: CommandLine): List<Repository> {
                 url = it.getString("url", "")
             )
         }.filter {
+//            it.type == "proxy"
             it.type == "hosted"
         }.filter {
             it.format == "maven2"
@@ -191,8 +193,11 @@ data class Artifact(
     val repository: String,
     val group: String,
     val name: String,
-    val version: String
-)
+    val version: String,
+) {
+    val realName = name.replace(Regex("[_-]v?\\d.*"), "")
+    val nameEncodedVersion = if (realName != name) name.drop(realName.length + 1) else ""
+}
 
 data class Response(val artifacts: List<Artifact>, val continuationToken: String?)
 
