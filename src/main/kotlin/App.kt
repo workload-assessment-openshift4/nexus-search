@@ -10,7 +10,10 @@ import org.apache.commons.cli.*
 import org.glassfish.jersey.client.authentication.HttpAuthenticationFeature
 import org.glassfish.json.jaxrs.JsonValueBodyReader
 import java.io.File
+import java.io.InputStream
 import java.io.StringReader
+import java.nio.file.Files
+import java.nio.file.Paths
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext
 import javax.net.ssl.X509TrustManager
@@ -60,7 +63,7 @@ fun main(vararg args: String) {
 
         val csv = distinctArtifacts
             .joinToString(System.getProperty("line.separator")) {
-                "${it.repository},${it.group},${it.name},${it.version}"
+                "${it.repository}, ${it.group}, ${it.name}, ${it.version}, ${it.downloadUrl}, ${it.pomDownloadUrl}"
             }
 
         if (cl.hasOption('v') || !cl.hasOption('f')) {
@@ -96,6 +99,7 @@ private fun requestArtifacts(target: WebTarget, repo: String, continuationToken:
             group = it.getString("group", ""),
             name = name,
             version = it.getString("version", ""),
+            downloadUrl = it.getJsonArray("assets")[0].asJsonObject().getString("downloadUrl")
         )
     }
 
@@ -157,6 +161,7 @@ private fun getRepos(cl: CommandLine): List<Repository> {
         .path("service/rest/v1/repositories")
         .request(MediaType.APPLICATION_JSON_TYPE)
         .get(JsonArray::class.java)
+        .asSequence()
         .map { it as JsonObject }
         .map {
             Repository(
@@ -166,13 +171,13 @@ private fun getRepos(cl: CommandLine): List<Repository> {
                 url = it.getString("url", "")
             )
         }.filter {
-//            it.type == "proxy"
-            it.type == "hosted"
+            it.type == if (cl.hasOption('t')) cl.getOptionValue('t') else "hosted"
         }.filter {
             it.format == "maven2"
         }.filter {
             !it.name.contains("snapshot", true)
         }
+        .toList()
 }
 
 fun createOptions(): Options {
@@ -185,6 +190,8 @@ fun createOptions(): Options {
     options.addOption("f", "file", true, "File to export too.")
     options.addOption("u", "username", true, "Username")
     options.addOption("p", "password", true, "Password")
+    options.addOption("d", "download", true, "Download Location")
+    options.addOption("t", "type", true, "Repository type defaults to hosted")
 
     return options
 }
@@ -194,9 +201,12 @@ data class Artifact(
     val group: String,
     val name: String,
     val version: String,
+    val downloadUrl: String,
 ) {
     val realName = name.replace(Regex("[_-]v?\\d.*"), "")
     val nameEncodedVersion = if (realName != name) name.drop(realName.length + 1) else ""
+    val extension: String = downloadUrl.substringAfterLast('.')
+    val pomDownloadUrl = downloadUrl.replaceAfterLast('.', "pom")
 }
 
 data class Response(val artifacts: List<Artifact>, val continuationToken: String?)
@@ -241,3 +251,23 @@ data class Repository(
     val type: String,
     val url: String
 )
+
+fun download(artifact: Artifact, cl: CommandLine) {
+    val client = buildClient(cl)
+
+    val jar = client.target(artifact.downloadUrl)
+        .request()
+        .get()
+        .readEntity(InputStream::class.java)
+
+    val location = Paths.get(cl.getOptionValue('d'), artifact.repository, artifact.group)
+
+    Files.copy(jar, location.resolve("${artifact.name}.${artifact.extension}"))
+
+    val pom = client.target(artifact.pomDownloadUrl)
+        .request()
+        .get()
+        .readEntity(InputStream::class.java)
+
+    Files.copy(pom, location.resolve("${artifact.name}.pom.xml"))
+}
