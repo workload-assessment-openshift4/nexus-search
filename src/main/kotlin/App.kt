@@ -39,7 +39,7 @@ fun main(vararg args: String) {
         getRepos(cl).forEach { repo ->
 
             do {
-                val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken)
+                val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken, cl)
 
                 continuationToken = token
 
@@ -80,7 +80,7 @@ fun main(vararg args: String) {
 
 }
 
-private fun requestArtifacts(target: WebTarget, repo: String, continuationToken: String?): Response {
+private fun requestArtifacts(target: WebTarget, repo: String, continuationToken: String?, cl: CommandLine): Response {
 
     val response = doRequest(target, repo, continuationToken)
 
@@ -94,12 +94,16 @@ private fun requestArtifacts(target: WebTarget, repo: String, continuationToken:
 
     val artifacts = response.getJsonArray("items").map { it as JsonObject }.map {
         val name = it.getString("name", "")
+
         Artifact(
             repository = it.getString("repository", ""),
             group = it.getString("group", ""),
             name = name,
             version = it.getString("version", ""),
-            downloadUrl = it.getJsonArray("assets")[0].asJsonObject().getString("downloadUrl")
+            downloadUrl = it.getJsonArray("assets").asSequence()
+                .map { jv -> jv.asJsonObject().getString("downloadUrl") }
+                .filter { downloadUrl -> downloadUrl.endsWith(cl.getOptionValue('e')) }
+                .first()
         )
     }
 
