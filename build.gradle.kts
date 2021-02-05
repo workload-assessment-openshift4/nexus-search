@@ -16,6 +16,8 @@ dependencies {
     implementation("org.glassfish.jersey.core", "jersey-client", "3.0.0")
     implementation("org.glassfish", "jsonp-jaxrs", "2.0.0")
     implementation("commons-cli", "commons-cli", "1.4")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.2")
+    implementation("org.apache.maven", "maven-model", "3.6.3")
     compileOnly("jakarta.ws.rs", "jakarta.ws.rs-api", "3.0.0")
     compileOnly("jakarta.json", "jakarta.json-api", "2.0.0")
     runtimeOnly("org.glassfish", "jakarta.json", "2.0.0")
