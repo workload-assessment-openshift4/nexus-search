@@ -63,37 +63,37 @@ fun findArtifacts(
     return runBlocking(Dispatchers.Default) {
         produce(Dispatchers.Default, Channel.UNLIMITED) {
 
-            val jobs: MutableList<Job> = mutableListOf()
-
-            for (repo in repoChannel) {
-
-                val job = launch(Dispatchers.IO) {
-                    var continuationToken: String? = null
-
-                    do {
-                        val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken, cl)
-
-                        continuationToken = token
-
-                        val filteredArtifacts = artifacts.filter {
-                            !it.repository.contains(
-                                "snapshot",
-                                true
-                            ) || !it.name.contains("snapshot", true)
-                        }
-
-                        LOGGER.addToTotalArtifacts(filteredArtifacts.count())
-
-                        filteredArtifacts.forEach { send(it) }
+            val jobs = (1..10).map {
+                launch(Dispatchers.IO) {
+                    for (repo in repoChannel) {
 
 
-                    } while (continuationToken != null)
+                        var continuationToken: String? = null
 
-                    LOGGER.completeOneRepository()
+                        do {
+                            val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken, cl)
+
+                            continuationToken = token
+
+                            val filteredArtifacts = artifacts.filter {
+                                !it.repository.contains(
+                                    "snapshot",
+                                    true
+                                ) || !it.name.contains("snapshot", true)
+                            }
+
+                            LOGGER.addToTotalArtifacts(filteredArtifacts.count())
+
+                            filteredArtifacts.forEach { send(it) }
+
+
+                        } while (continuationToken != null)
+
+                        LOGGER.completeOneRepository()
+                    }
                 }
-
-                jobs.add(job)
             }
+
 
             jobs.forEach { it.join() }
             close()
