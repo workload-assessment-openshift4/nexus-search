@@ -18,7 +18,7 @@ import java.nio.file.Paths
 @ExperimentalCoroutinesApi
 fun findRepos(cl: CommandLine): ReceiveChannel<Repository> {
     return runBlocking(Dispatchers.Default) {
-        produce(Dispatchers.IO, 100) {
+        produce(Dispatchers.IO, Channel.UNLIMITED) {
             val client = buildClient(cl)
 
             val repos = client
