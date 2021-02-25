@@ -9,7 +9,7 @@ fun createOptions(): Options {
     options.addRequiredOption("s", "server", true, "The Nexus API URL")
     options.addRequiredOption("e", "extension", true, "The artifacts' extension")
     options.addOption("g", "group", true, "The group to select from")
-    options.addOption("f", "file", true, "File to export too.")
+    options.addOption("f", "file", true, "File to export to.")
     options.addOption("u", "username", true, "Username")
     options.addOption("p", "password", true, "Password")
     options.addOption("d", "download", true, "Download Location")

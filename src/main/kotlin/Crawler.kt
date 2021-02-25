@@ -65,7 +65,7 @@ suspend fun requestArtifacts(target: WebTarget, repo: String, continuationToken:
             name = name,
             version = it.getString("version", ""),
             downloadUrl = downloadUrls.first { url -> url.endsWith(cl.getOptionValue('e')) },
-            pomDownloadUrl = downloadUrls.first { url -> url.endsWith("pom") }
+            pomDownloadUrl = downloadUrls.firstOrNull { url -> url.endsWith("pom") }
         )
     }
 

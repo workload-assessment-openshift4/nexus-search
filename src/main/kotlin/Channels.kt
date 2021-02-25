@@ -148,28 +148,29 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
                     val client = buildClient(cl)
 
                     for (artifact in artifactChannel) {
+                        if(artifact.pomDownloadUrl != null) {
+                            val location = rootPath.resolve(artifact.repository).resolve(artifact.group)
 
-                        val location = rootPath.resolve(artifact.repository).resolve(artifact.group)
+                            Files.createDirectories(location)
 
-                        Files.createDirectories(location)
+                            val pom = client.target(artifact.pomDownloadUrl)
+                                .request()
+                                .get()
+                                .readEntity(InputStream::class.java)
 
-                        val pom = client.target(artifact.pomDownloadUrl)
-                            .request()
-                            .get()
-                            .readEntity(InputStream::class.java)
+                            val pomLocation = location.resolve("${artifact.name}.pom.xml")
+                            Files.copy(pom, pomLocation)
 
-                        val pomLocation = location.resolve("${artifact.name}.pom.xml")
-                        Files.copy(pom, pomLocation)
+                            val reader = MavenXpp3Reader()
 
-                        val reader = MavenXpp3Reader()
+                            try {
+                                val model = reader.read(Files.newInputStream(pomLocation))
 
-                        try {
-                            val model = reader.read(Files.newInputStream(pomLocation))
-
-                            model.name?.let { artifact.fullName = it }
-                            model.description?.let { artifact.description = it }
-                        } catch (_: XmlPullParserException) {
-                            LOGGER.log("Error reading $pomLocation downloaded from: ${artifact.pomDownloadUrl}")
+                                model.name?.let { artifact.fullName = it }
+                                model.description?.let { artifact.description = it }
+                            } catch (_: XmlPullParserException) {
+                                LOGGER.log("Error reading $pomLocation downloaded from: ${artifact.pomDownloadUrl}")
+                            }
                         }
 
                         send(artifact)

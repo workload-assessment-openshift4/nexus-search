@@ -8,7 +8,7 @@ data class Artifact(
     val name: String,
     val version: String,
     val downloadUrl: String,
-    val pomDownloadUrl: String
+    val pomDownloadUrl: String?
 ) {
     val realName = name.replace(Regex("[_-]v?\\d.*"), "")
     val nameEncodedVersion = if (realName != name) name.drop(realName.length + 1) else ""
