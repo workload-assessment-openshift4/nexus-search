@@ -63,9 +63,10 @@ fun findArtifacts(
 
             val jobs = (1..10).map {
                 launch(Dispatchers.IO) {
-                    for (repo in repoChannel) {
 
-                        val target = buildSearchTarget(cl)
+                    val target = buildSearchTarget(cl)
+
+                    for (repo in repoChannel) {
 
                         var continuationToken: String? = null
 
