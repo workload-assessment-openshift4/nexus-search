@@ -22,26 +22,26 @@ fun findRepos(cl: CommandLine): ReceiveChannel<Repository> {
             val client = buildClient(cl)
 
             val repos = client
-                .target(cl.getOptionValue('s'))
-                .path("service/rest/v1/repositories")
-                .request(MediaType.APPLICATION_JSON_TYPE)
-                .get(JsonArray::class.java)
-                .asSequence()
-                .map { it as JsonObject }
-                .map {
-                    Repository(
-                        name = it.getString("name", ""),
-                        format = it.getString("format", ""),
-                        type = it.getString("type", ""),
-                        url = it.getString("url", "")
-                    )
-                }.filter {
-                    it.type == if (cl.hasOption('t')) cl.getOptionValue('t') else "hosted"
-                }.filter {
-                    it.format == "maven2"
-                }.filter {
-                    !it.name.contains("snapshot", true)
-                }
+                    .target(cl.getOptionValue('s'))
+                    .path("service/rest/v1/repositories")
+                    .request(MediaType.APPLICATION_JSON_TYPE)
+                    .get(JsonArray::class.java)
+                    .asSequence()
+                    .map { it as JsonObject }
+                    .map {
+                        Repository(
+                                name = it.getString("name", ""),
+                                format = it.getString("format", ""),
+                                type = it.getString("type", ""),
+                                url = it.getString("url", "")
+                        )
+                    }.filter {
+                        it.type == if (cl.hasOption('t')) cl.getOptionValue('t') else "hosted"
+                    }.filter {
+                        it.format == "maven2"
+                    }.filter {
+                        !it.name.contains("snapshot", true)
+                    }
 
             LOGGER.totalRepositories(repos.count())
 
@@ -54,11 +54,9 @@ fun findRepos(cl: CommandLine): ReceiveChannel<Repository> {
 
 @ExperimentalCoroutinesApi
 fun findArtifacts(
-    repoChannel: ReceiveChannel<Repository>,
-    cl: CommandLine
+        repoChannel: ReceiveChannel<Repository>,
+        cl: CommandLine
 ): ReceiveChannel<Artifact> {
-
-    val target = buildSearchTarget(cl)
 
     return runBlocking(Dispatchers.Default) {
         produce(Dispatchers.Default, Channel.UNLIMITED) {
@@ -67,6 +65,7 @@ fun findArtifacts(
                 launch(Dispatchers.IO) {
                     for (repo in repoChannel) {
 
+                        val target = buildSearchTarget(cl)
 
                         var continuationToken: String? = null
 
@@ -77,8 +76,8 @@ fun findArtifacts(
 
                             val filteredArtifacts = artifacts.filter {
                                 !it.repository.contains(
-                                    "snapshot",
-                                    true
+                                        "snapshot",
+                                        true
                                 ) || !it.name.contains("snapshot", true)
                             }
 
@@ -113,7 +112,7 @@ fun filterArtifacts(artifactChannel: ReceiveChannel<Artifact>): ReceiveChannel<A
             }
 
             val mappedArtifacts =
-                allSelectedArtifacts.groupBy({ "${it.repository}/${it.group}:${it.realName}" }, { it })
+                    allSelectedArtifacts.groupBy({ "${it.repository}/${it.group}:${it.realName}" }, { it })
 
             LOGGER.ignoredArtifacts(allSelectedArtifacts.count() - mappedArtifacts.count())
 
@@ -148,15 +147,15 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
                     val client = buildClient(cl)
 
                     for (artifact in artifactChannel) {
-                        if(artifact.pomDownloadUrl != null) {
+                        if (artifact.pomDownloadUrl != null) {
                             val location = rootPath.resolve(artifact.repository).resolve(artifact.group)
 
                             Files.createDirectories(location)
 
                             val pom = client.target(artifact.pomDownloadUrl)
-                                .request()
-                                .get()
-                                .readEntity(InputStream::class.java)
+                                    .request()
+                                    .get()
+                                    .readEntity(InputStream::class.java)
 
                             val pomLocation = location.resolve("${artifact.name}.pom.xml")
                             Files.copy(pom, pomLocation)
