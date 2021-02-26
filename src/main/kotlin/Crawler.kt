@@ -31,10 +31,14 @@ suspend fun doRequest(
     } catch (_: InternalServerErrorException) {
         val a = i + 1
         LOGGER.log("Failed $a time(s)")
+
+        println("Failed $a time(s) while reading repo: $repo")
+
         if (a < 5)
             doRequest(target, repo, continuationToken, a)
         else {
             LOGGER.log("We can't get past that error")
+            println("We could not fully ready repo: $repo")
             EMPTY_RESPONSE
         }
     }

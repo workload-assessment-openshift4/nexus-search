@@ -170,6 +170,7 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
                                 model.description?.let { artifact.description = it }
                             } catch (_: XmlPullParserException) {
                                 LOGGER.log("Error reading $pomLocation downloaded from: ${artifact.pomDownloadUrl}")
+                                println("Error reading $pomLocation downloaded from: ${artifact.pomDownloadUrl}")
                             }
                         }
 
