@@ -3,10 +3,12 @@ package no.not.none.nexus
 import jakarta.json.JsonArray
 import jakarta.json.JsonObject
 import jakarta.ws.rs.core.MediaType
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.produce
+import kotlinx.coroutines.runBlocking
 import org.apache.commons.cli.CommandLine
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException
@@ -59,43 +61,38 @@ fun findArtifacts(
 ): ReceiveChannel<Artifact> {
 
     return runBlocking(Dispatchers.Default) {
-        produce(Dispatchers.Default, Channel.UNLIMITED) {
+        produce(Dispatchers.IO, Channel.UNLIMITED) {
+//            launch(Dispatchers.IO) {
 
-            val jobs = (1..10).map {
-                launch(Dispatchers.IO) {
+            val target = buildSearchTarget(cl)
 
-                    val target = buildSearchTarget(cl)
+            for (repo in repoChannel) {
 
-                    for (repo in repoChannel) {
+                var continuationToken: String? = null
 
-                        var continuationToken: String? = null
+                do {
+                    val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken, cl)
 
-                        do {
-                            val (artifacts, token) = requestArtifacts(target, repo.name, continuationToken, cl)
+                    continuationToken = token
 
-                            continuationToken = token
-
-                            val filteredArtifacts = artifacts.filter {
-                                !it.repository.contains(
-                                        "snapshot",
-                                        true
-                                ) || !it.name.contains("snapshot", true)
-                            }
-
-                            LOGGER.addToTotalArtifacts(filteredArtifacts.count())
-
-                            filteredArtifacts.forEach { send(it) }
-
-
-                        } while (continuationToken != null)
-
-                        LOGGER.completeOneRepository()
+                    val filteredArtifacts = artifacts.filter {
+                        !it.repository.contains(
+                                "snapshot",
+                                true
+                        ) || !it.name.contains("snapshot", true)
                     }
+
+                    LOGGER.addToTotalArtifacts(repo.name, filteredArtifacts.count())
+
+                    filteredArtifacts.forEach { send(it) }
+
+
+                } while (continuationToken != null)
+
+                LOGGER.completeOneRepository()
                 }
-            }
+//            }
 
-
-            jobs.forEach { it.join() }
             close()
         }
     }
@@ -142,9 +139,9 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
             if (Files.exists(rootPath))
                 File(rootLocation).deleteRecursively()
 
-            val jobs = (1..10).map {
+//            val jobs = (1..10).map {
 
-                launch(Dispatchers.IO) {
+//                launch(Dispatchers.IO) {
                     val client = buildClient(cl)
 
                     for (artifact in artifactChannel) {
@@ -176,10 +173,10 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
 
                         send(artifact)
                     }
-                }
-            }
-
-            jobs.joinAll()
+//                }
+//            }
+//
+//            jobs.joinAll()
             close()
         }
     }

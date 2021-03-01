@@ -16,6 +16,8 @@ object LOGGER {
     private var ignoredArtifacts = 0
     private var totalArtifacts = 0
 
+    private val artifactsPerRepo = mutableMapOf<String, Int>()
+
     private val counterContext = newSingleThreadContext("CounterContext")
     private val logContext = newSingleThreadContext("LogContext")
 
@@ -47,8 +49,12 @@ object LOGGER {
         }
     }
 
-    suspend fun addToTotalArtifacts(quantity: Int) {
+    suspend fun addToTotalArtifacts(repo: String, quantity: Int) {
         withContext(counterContext) {
+
+            artifactsPerRepo.merge(repo, quantity) { _, count ->
+                count + quantity
+            }
 
             totalArtifacts += quantity
             update()
@@ -70,6 +76,12 @@ object LOGGER {
     suspend fun log(content: String) {
         withContext(logContext) {
             File(DEFAULT).appendText("$content${System.lineSeparator()}")
+        }
+    }
+
+    fun printReport() {
+        artifactsPerRepo.forEach {
+            println("Found ${it.value} artifacts in ${it.key}")
         }
     }
 }

@@ -25,4 +25,6 @@ fun main(vararg args: String) {
 
         writeOutput(downloadedPomChannel, fileLocation)
     }
+
+    LOGGER.printReport()
 }
