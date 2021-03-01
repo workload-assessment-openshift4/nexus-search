@@ -34,7 +34,7 @@ suspend fun doRequest(
 
         println("Failed $a time(s) while reading repo: $repo")
 
-        if (a < 5)
+        if (a < 100)
             doRequest(target, repo, continuationToken, a)
         else {
             LOGGER.log("We can't get past that error")
