@@ -6,14 +6,20 @@ import kotlin.system.exitProcess
 fun createOptions(): Options {
     val options = Options()
 
-    options.addRequiredOption("s", "server", true, "The Nexus API URL")
-    options.addRequiredOption("e", "extension", true, "The artifacts' extension")
-    options.addOption("g", "group", true, "The group to select from")
-    options.addOption("f", "file", true, "File to export to.")
-    options.addOption("u", "username", true, "Username")
-    options.addOption("p", "password", true, "Password")
-    options.addOption("d", "download", true, "Download Location")
-    options.addOption("t", "type", true, "Repository type defaults to hosted")
+    options.addRequiredOption("s", "server", true, "The URL to access the Nexus API (Required).")
+    options.addOption("u", "username", true, "The username for the Nexus API (Optional).")
+    options.addOption("p", "password", true, "The password for the Nexus API (Optional).")
+
+    options.addRequiredOption("e", "extension", true, " The artifacts' extension (jar, war, ear) (Required).")
+    options.addOption("g", "group", true, "The maven group id to use as a filter. Wildcard can be used.(Optional).")
+    options.addOption("f", "file", true, "File to export to (Optional).")
+    options.addOption(
+        "d",
+        "download",
+        true,
+        "Optionally define the location to download the pom files. Defaults to \"poms\" (Optional)."
+    )
+    options.addOption("t", "type", true, "Optionally define the repository types. Defaults to \"hosted\" (Optional).")
 
     return options
 }

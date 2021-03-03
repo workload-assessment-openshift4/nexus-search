@@ -1,10 +1,8 @@
 package no.not.none.nexus
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Paths
-
 
 @ExperimentalCoroutinesApi
 fun main(vararg args: String) {
@@ -12,7 +10,6 @@ fun main(vararg args: String) {
 
     val cl = readArguments(options, *args)
 
-    runBlocking {
         val repoChannel = findRepos(cl)
 
         val allSelectedArtifactChannel = findArtifacts(repoChannel, cl)
@@ -27,7 +24,6 @@ fun main(vararg args: String) {
 
             writeOutput(downloadedPomChannel, fileLocation)
         }
-    }
 
     LOGGER.printReport()
 }

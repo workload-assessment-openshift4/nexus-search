@@ -9,7 +9,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.produce
-import kotlinx.coroutines.runBlocking
 import org.apache.commons.cli.CommandLine
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader
 import org.codehaus.plexus.util.xml.pull.XmlPullParserException
@@ -140,10 +139,6 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
 
         if (Files.exists(rootPath))
             File(rootLocation).deleteRecursively()
-
-//            val jobs = (1..10).map {
-
-//                launch(Dispatchers.IO) {
         val client = buildClient(cl)
 
         for (artifact in artifactChannel) {
@@ -175,40 +170,7 @@ fun downloadPom(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): Rec
 
             send(artifact)
         }
-//                }
-//            }
-//
-//            jobs.joinAll()
         close()
     }
 }
-
-//@ExperimentalCoroutinesApi
-//fun dateArtifacts(artifactChannel: ReceiveChannel<Artifact>, cl: CommandLine): ReceiveChannel<Artifact> {
-//    val assetTarget = buildAssetTarget(cl)
-//    
-//    return runBlocking (Dispatchers.Default) {
-//        produce(Dispatchers.Default, Channel.UNLIMITED) {
-//
-//            val jobs: MutableList<Job> = mutableListOf()
-//
-//            for (artifact in artifactChannel) {
-//
-//                val job = launch(Dispatchers.IO) {
-//                    val asset = assetTarget.path(artifact.id)
-//                        .request()
-//                        .get(JsonObject::class.java)
-//                    
-//                    LocalDateTime.parse()
-//                }
-//
-//                jobs.add(job)
-//            }
-//
-//            jobs.forEach { it.join() }
-//            close()
-//        }
-//    }
-//    }
-//}
 
