@@ -1,6 +1,7 @@
 package no.not.none.nexus
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import java.nio.file.Files
 import java.nio.file.Paths
 
@@ -11,19 +12,21 @@ fun main(vararg args: String) {
 
     val cl = readArguments(options, *args)
 
-    val repoChannel = findRepos(cl)
+    runBlocking {
+        val repoChannel = findRepos(cl)
 
-    val allSelectedArtifactChannel = findArtifacts(repoChannel, cl)
+        val allSelectedArtifactChannel = findArtifacts(repoChannel, cl)
 
-    val filteredArtifactChannel = filterArtifacts(allSelectedArtifactChannel)
+        val filteredArtifactChannel = filterArtifacts(allSelectedArtifactChannel)
 
-    val downloadedPomChannel = downloadPom(filteredArtifactChannel, cl)
+        val downloadedPomChannel = downloadPom(filteredArtifactChannel, cl)
 
-    if (cl.hasOption('f')) {
-        val fileLocation = cl.getOptionValue('f')
-        Files.deleteIfExists(Paths.get(fileLocation))
+        if (cl.hasOption('f')) {
+            val fileLocation = cl.getOptionValue('f')
+            Files.deleteIfExists(Paths.get(fileLocation))
 
-        writeOutput(downloadedPomChannel, fileLocation)
+            writeOutput(downloadedPomChannel, fileLocation)
+        }
     }
 
     LOGGER.printReport()
